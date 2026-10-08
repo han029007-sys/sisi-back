@@ -24,8 +24,9 @@ public class LisMarketSnapshotClient {
         this.objectMapper = objectMapper;
     }
 
-    public void forEachSkin(Consumer<LisSkinSnapshotItem> consumer) {
-
+    public void forEachSkin(
+            Consumer<LisSkinSnapshotItem> consumer
+    ) {
         restClient.get()
                 .uri(URL)
                 .exchange((request, response) -> {
@@ -47,7 +48,6 @@ public class LisMarketSnapshotClient {
                         }
 
                         boolean foundItems = false;
-
                         JsonToken token;
 
                         while ((token = parser.nextToken()) != null) {
@@ -70,22 +70,14 @@ public class LisMarketSnapshotClient {
 
                                 foundItems = true;
 
-                                while ((token = parser.nextToken())
-                                        != JsonToken.END_ARRAY) {
+                                try (var iterator = objectMapper
+                                        .readerFor(LisSkinSnapshotItem.class)
+                                        .<LisSkinSnapshotItem>readValues(parser)) {
 
-                                    if (token == null) {
-                                        throw new IllegalStateException(
-                                                "Unexpected end of LIS snapshot"
-                                        );
+                                    while (iterator.hasNextValue()) {
+                                        LisSkinSnapshotItem skin = iterator.nextValue();
+                                        consumer.accept(skin);
                                     }
-
-                                    LisSkinSnapshotItem skin =
-                                            objectMapper.readValue(
-                                                    parser,
-                                                    LisSkinSnapshotItem.class
-                                            );
-
-                                    consumer.accept(skin);
                                 }
 
                             } else {

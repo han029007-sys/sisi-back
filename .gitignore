@@ -1,0 +1,60 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Build
+target/
+build/
+out/
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Maven
+.mvn/timing.properties
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Application secrets
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# Docker/local data
+docker-data/
+data/
+
+# Redis/Postgres local volumes
+redis-data/
+postgres-data/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Java crash logs
+hs_err_pid*
+replay_pid*

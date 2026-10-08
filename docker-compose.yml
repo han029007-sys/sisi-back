@@ -1,0 +1,90 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: upgrader-postgres
+
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    restart: unless-stopped
+
+
+  redis:
+    image: redis/redis-stack-server:latest
+    container_name: skinforge-redis
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+    restart: unless-stopped
+
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: upgrader-service
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+    environment:
+      LISSKINS_API_KEY: ${LISSKINS_API_KEY}
+      STEAM_API_KEY: ${STEAM_API_KEY}
+
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS}
+
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL}
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+      SPRING_JPA_SHOW_SQL: "false"
+
+    ports:
+      - "8080:8080"
+
+    restart: unless-stopped
+
+
+volumes:
+  postgres_data:
+  redis_data:

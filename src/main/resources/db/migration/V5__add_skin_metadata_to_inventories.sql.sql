@@ -1,0 +1,4 @@
+ALTER TABLE inventories
+    ADD COLUMN listing_id VARCHAR(100),
+    ADD COLUMN rarity VARCHAR(100),
+    ADD COLUMN wear VARCHAR(100);

@@ -16,7 +16,7 @@ public class SteamAuthService {
             "https://steamcommunity.com/openid/login";
 
     private static final String CALLBACK =
-            "http://localhost:8080/api/auth/steam/callback";
+            "https://api.sisiskins.best/api/auth/steam/callback";
 
     private static final String STEAM_OPENID_ID_PREFIX =
             "https://steamcommunity.com/openid/id/";

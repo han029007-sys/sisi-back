@@ -1,3 +1,4 @@
+
 package com.skinforge.upgrader.provider.lisskins;
 
 import com.skinforge.upgrader.metadata.SkinMetadataProvider;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @RequiredArgsConstructor
@@ -28,41 +30,46 @@ public class LisMarketInitializer {
     public void init() {
 
         try {
-            log.info("Loading LIS market snapshot...");
 
-            List<LisSkinSnapshotItem> skins =
-                    snapshotClient.loadAll();
+            if (!redisRepository.isEmpty()) {
 
-            log.info(
-                    "Loaded {} listings from LIS",
-                    skins.size()
-            );
+                log.info(
+                        "LIS Redis catalog already exists, skipping snapshot"
+                );
+
+                webSocketClient.connect();
+                return;
+            }
+
+            log.info("Loading LIS market snapshot (streaming)...");
 
             Map<String, LisSkinSnapshotItem> cheapestByName =
                     new HashMap<>();
 
-            int skippedWithoutImage = 0;
-            int skippedNotCs2 = 0;
+            AtomicLong processed = new AtomicLong();
+            AtomicLong skippedWithoutImage = new AtomicLong();
+            AtomicLong skippedNotCs2 = new AtomicLong();
 
-            for (LisSkinSnapshotItem skin : skins) {
+            snapshotClient.forEachSkin(skin -> {
+
+                long count = processed.incrementAndGet();
 
                 if (!hasImage(skin)) {
-                    skippedWithoutImage++;
-                    continue;
+                    skippedWithoutImage.incrementAndGet();
+                    return;
                 }
 
-                if (skin.name() == null
-                        || skin.name().isBlank()) {
-                    continue;
+                if (skin.name() == null || skin.name().isBlank()) {
+                    return;
                 }
 
                 if (skin.price() == null) {
-                    continue;
+                    return;
                 }
 
                 if (metadataProvider.get(skin.name()) == null) {
-                    skippedNotCs2++;
-                    continue;
+                    skippedNotCs2.incrementAndGet();
+                    return;
                 }
 
                 cheapestByName.merge(
@@ -70,24 +77,39 @@ public class LisMarketInitializer {
                         skin,
                         this::cheapest
                 );
-            }
+
+                if (count % 100_000 == 0) {
+                    log.info(
+                            "LIS snapshot: processed {}, unique {}",
+                            count,
+                            cheapestByName.size()
+                    );
+                }
+            });
+
+            log.info(
+                    "LIS snapshot processed: {} listings",
+                    processed.get()
+            );
 
             log.info(
                     "Found {} unique CS2 skins, skipped {} without image, {} non-CS2",
                     cheapestByName.size(),
-                    skippedWithoutImage,
-                    skippedNotCs2
+                    skippedWithoutImage.get(),
+                    skippedNotCs2.get()
             );
+
+            if (cheapestByName.isEmpty()) {
+                throw new IllegalStateException(
+                        "LIS snapshot returned no valid CS2 skins"
+                );
+            }
 
             List<LisSkinDocument> documents =
                     cheapestByName.values()
                             .stream()
                             .map(this::map)
                             .toList();
-
-            log.info("Clearing old LIS Redis data...");
-
-            redisRepository.clearAll();
 
             log.info(
                     "Saving {} unique LIS skins to Redis...",
@@ -101,9 +123,7 @@ public class LisMarketInitializer {
                     documents.size()
             );
 
-            log.info(
-                    "LIS snapshot initialized, starting websocket..."
-            );
+            log.info("Starting LIS WebSocket...");
 
             webSocketClient.connect();
 
@@ -121,23 +141,18 @@ public class LisMarketInitializer {
             LisSkinSnapshotItem candidate
     ) {
 
-        return candidate.price()
-                .compareTo(current.price()) < 0
+        return candidate.price().compareTo(current.price()) < 0
                 ? candidate
                 : current;
     }
 
-    private LisSkinDocument map(
-            LisSkinSnapshotItem item
-    ) {
+    private LisSkinDocument map(LisSkinSnapshotItem item) {
 
-        var metadata =
-                metadataProvider.get(item.name());
+        var metadata = metadataProvider.get(item.name());
 
-        String rarity =
-                metadata != null
-                        ? metadata.rarity()
-                        : null;
+        String rarity = metadata != null
+                ? metadata.rarity()
+                : null;
 
         return new LisSkinDocument(
                 item.id(),
@@ -152,20 +167,15 @@ public class LisMarketInitializer {
         );
     }
 
-    private boolean hasImage(
-            LisSkinSnapshotItem item
-    ) {
+    private boolean hasImage(LisSkinSnapshotItem item) {
 
         return item.itemClassId() != null
                 && !item.itemClassId().isBlank();
     }
 
-    private Double parseFloat(
-            String value
-    ) {
+    private Double parseFloat(String value) {
 
-        if (value == null
-                || value.isBlank()) {
+        if (value == null || value.isBlank()) {
             return null;
         }
 
@@ -176,9 +186,7 @@ public class LisMarketInitializer {
         }
     }
 
-    private String parseWear(
-            String name
-    ) {
+    private String parseWear(String name) {
 
         if (name == null) {
             return null;
@@ -191,11 +199,7 @@ public class LisMarketInitializer {
             return null;
         }
 
-        String value =
-                name.substring(
-                        start + 1,
-                        end
-                );
+        String value = name.substring(start + 1, end);
 
         return switch (value) {
             case "Factory New",
@@ -203,30 +207,23 @@ public class LisMarketInitializer {
                  "Field-Tested",
                  "Well-Worn",
                  "Battle-Scarred" -> value;
-
             default -> null;
         };
     }
 
-    private String parseWeapon(
-            String name
-    ) {
+    private String parseWeapon(String name) {
 
         if (name == null) {
             return null;
         }
 
-        int separator =
-                name.indexOf('|');
+        int separator = name.indexOf('|');
 
         if (separator < 0) {
             return null;
         }
 
-        return name.substring(
-                        0,
-                        separator
-                )
+        return name.substring(0, separator)
                 .replace("StatTrak™", "")
                 .replace("Souvenir", "")
                 .replace("★", "")

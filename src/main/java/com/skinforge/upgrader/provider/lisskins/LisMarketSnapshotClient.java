@@ -70,6 +70,24 @@ public class LisMarketSnapshotClient {
 
                                 foundItems = true;
 
+                                JsonToken firstToken = parser.nextToken();
+
+                                if (firstToken == null) {
+                                    throw new IllegalStateException(
+                                            "Unexpected end of LIS items array"
+                                    );
+                                }
+
+                                if (firstToken == JsonToken.END_ARRAY) {
+                                    continue;
+                                }
+
+                                if (firstToken != JsonToken.START_OBJECT) {
+                                    throw new IllegalStateException(
+                                            "Expected skin object, got: " + firstToken
+                                    );
+                                }
+
                                 try (var iterator = objectMapper
                                         .readerFor(LisSkinSnapshotItem.class)
                                         .<LisSkinSnapshotItem>readValues(parser)) {
@@ -79,7 +97,6 @@ public class LisMarketSnapshotClient {
                                         consumer.accept(skin);
                                     }
                                 }
-
                             } else {
                                 parser.skipChildren();
                             }

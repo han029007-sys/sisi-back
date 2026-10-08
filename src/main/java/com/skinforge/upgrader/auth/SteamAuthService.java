@@ -42,7 +42,7 @@ public class SteamAuthService {
                 )
                 .queryParam(
                         "openid.realm",
-                        "http://localhost:8080"
+                        "https://api.sisiskins.best"
                 )
                 .queryParam(
                         "openid.identity",

@@ -27,8 +27,8 @@ public class UpgradeService {
     private final UpgradeRepository upgradeRepository;
     private final SkinMarketService skinMarketService;
 
-    private final BigDecimal RTP = new BigDecimal("0.80");
-    private static final BigDecimal MAX_CHANCE = new BigDecimal("0.80");
+    private final BigDecimal RTP = new BigDecimal("0.90");
+    private static final BigDecimal MAX_CHANCE = new BigDecimal("0.90");
     private static final BigDecimal MAX_WIN_AMOUNT = new BigDecimal("100.00");
 
     public Page<UpgradeHistoryResponse> getHistory(UUID userId, Pageable pageable) {
@@ -75,10 +75,12 @@ public class UpgradeService {
             throw new IllegalArgumentException("Target skin must be more expensive");
         }
 
+        var differentPrice = targetPrice.subtract(inputPrice);
+
         BigDecimal chance = inputPrice
                 .divide(targetPrice, 8, RoundingMode.DOWN)
                 .multiply(RTP)
-                .min(getMaxChance(userId))
+                .min(getMaxChance(userId, differentPrice))
                 .setScale(8, RoundingMode.DOWN);
 
         BigDecimal chanceReal = inputPrice
@@ -143,10 +145,11 @@ public class UpgradeService {
         );
     }
 
-    private BigDecimal getMaxChance(UUID userId){
-        BigDecimal pnl = upgradeRepository.calculateUserPnl(userId);;
+    private BigDecimal getMaxChance(UUID userId, BigDecimal differentPrice){
+        BigDecimal pnl = upgradeRepository.calculateUserPnl(userId);
+        pnl = pnl.add(differentPrice);
 
-        if (pnl.compareTo(MAX_WIN_AMOUNT) <= 0){
+        if (pnl.compareTo(MAX_WIN_AMOUNT) > 0){
             return new BigDecimal("0");
         }
         else {

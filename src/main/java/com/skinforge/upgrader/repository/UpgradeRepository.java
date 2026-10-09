@@ -32,9 +32,9 @@ public interface UpgradeRepository extends JpaRepository<Upgrade, Long> {
                 select coalesce(sum(
                     case
                         when u.result = com.skinforge.upgrader.model.UpgradeResult.LOSE
-                            then u.inputPrice
+                            then -u.inputPrice
                         when u.result = com.skinforge.upgrader.model.UpgradeResult.WIN
-                            then u.inputPrice - u.targetPrice
+                            then u.targetPrice - u.inputPrice
                         else 0
                     end
                 ), 0)

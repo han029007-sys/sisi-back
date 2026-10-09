@@ -5,6 +5,7 @@ import com.skinforge.upgrader.model.User;
 import com.skinforge.upgrader.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -12,11 +13,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequiredArgsConstructor
 public class SteamAuthService {
 
+    @Value("${app.backend.url}")
+    private String backendUrl;
+
     private static final String STEAM_OPENID =
             "https://steamcommunity.com/openid/login";
-
-    private static final String CALLBACK =
-            "https://api.sisiskins.best/api/auth/steam/callback";
 
     private static final String STEAM_OPENID_ID_PREFIX =
             "https://steamcommunity.com/openid/id/";
@@ -38,11 +39,11 @@ public class SteamAuthService {
                 )
                 .queryParam(
                         "openid.return_to",
-                        CALLBACK
+                        backendUrl + "/api/auth/steam/callback"
                 )
                 .queryParam(
                         "openid.realm",
-                        "https://api.sisiskins.best"
+                        backendUrl
                 )
                 .queryParam(
                         "openid.identity",
